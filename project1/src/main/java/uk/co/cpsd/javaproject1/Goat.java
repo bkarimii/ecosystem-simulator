@@ -14,16 +14,16 @@ public class Goat extends Animal {
 
     public final int HUNGER_THRESHOLDS = 30;
     public final int GOAT_MAX_AGE = 60;
-    private  double fleeingPower;
+    private double fleeingPower;
 
     public Goat(int x, int y) {
         super(x, y, 40);
         this.setLastReproductionTick(0);
-        Random random=new Random();
+        Random random = new Random();
         if (!dna.containsKey("fleeingPower")) {
             dna.put("fleeingPower", 7.0 + new Random().nextDouble() * 2 - 1); // Random 6-8
         }
-        fleeingPower=dna.getOrDefault("fleeingPower",8.0);
+        fleeingPower = dna.getOrDefault("fleeingPower", 8.0);
     }
 
     public void eatGrass() {
@@ -43,6 +43,9 @@ public class Goat extends Animal {
 
     @Override
     public void act(World world, List<Animal> babyAnimalHolder, List<Animal> removedAnimalsHolder) {
+        // Handle pregnancy before other actions
+        handlePregnancy(world, babyAnimalHolder);
+
         DecisionInfo decisionInfo = animalDecisionMaking(world);
 
         switch (decisionInfo.type()) {
@@ -59,8 +62,8 @@ public class Goat extends Animal {
                 Animal partnerGoat = world.getAnimalAt(partnerLocation.x, partnerLocation.y);
 
                 if (partnerGoat instanceof Goat otherGoat && this.willMate(otherGoat, world.getTotalTicks())) {
-                    Animal babyGoat = this.reproduceWith(otherGoat, world.getTotalTicks());
-                    babyAnimalHolder.add(babyGoat);
+                    this.reproduceWith(otherGoat, world.getTotalTicks());
+//                    babyAnimalHolder.add(babyGoat);
                 }
                 break;
             case FLEE:
@@ -105,29 +108,29 @@ public class Goat extends Animal {
         }
 
         //4. Score tiles for wandering (grass=8 , safe tile preferred, lion=-10)
-         Point bestMove=null;
-        double bestScore=-1;
-        for(Map.Entry<Point,List<Object>> entry:scannedNeighbourHoodByGoat.entrySet()){
-             double score=0;
-             List<Object> objectsAtTile=entry.getValue();
-             if(objectsAtTile.contains("grass")){
-                 score+=8;
-             }
-             boolean hasLion= objectsAtTile.stream().anyMatch(obj->obj instanceof  Lion);
-             if(hasLion){
-                 score-=10;
-             }else{
-                 score+=fleeingPower;
-             }
+        Point bestMove = null;
+        double bestScore = -1;
+        for (Map.Entry<Point, List<Object>> entry : scannedNeighbourHoodByGoat.entrySet()) {
+            double score = 0;
+            List<Object> objectsAtTile = entry.getValue();
+            if (objectsAtTile.contains("grass")) {
+                score += 8;
+            }
+            boolean hasLion = objectsAtTile.stream().anyMatch(obj -> obj instanceof Lion);
+            if (hasLion) {
+                score -= 10;
+            } else {
+                score += fleeingPower;
+            }
             for (Object obj : objectsAtTile) {
                 if (obj instanceof Goat) {
                     score += 6; // Preference to stay near other goats
                 }
             }
-             if(score>bestScore){
-                 bestScore=score;
-                 bestMove=entry.getKey();
-             }
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = entry.getKey();
+            }
         }
 
 
@@ -192,6 +195,11 @@ public class Goat extends Animal {
     }
 
     @Override
+    protected int getPregnancyDuration() {
+        return 5; // 5 ticks = 5 seconds
+    }
+
+    @Override
     public int getReproductionEnergyCost(Gender gender) {
         return gender == Gender.FEMALE ? 7 : 5;
 
@@ -214,8 +222,8 @@ public class Goat extends Animal {
 
     @Override
     public int getReproductionCooldown(Gender gender) {
-        int baseCooldown = gender == Gender.FEMALE ? 4 : 2;
-        return (int)(baseCooldown / (reproductionPower / 5.0));
+        // Strong Males can reproduct soon
+        return gender==Gender.FEMALE?12:4-(int)(reproductionPower-5);
     }
 
     public boolean hasReachedEndOfLife() {
