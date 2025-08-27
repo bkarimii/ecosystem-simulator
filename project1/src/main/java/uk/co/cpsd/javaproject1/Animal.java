@@ -17,12 +17,17 @@ public abstract class Animal {
     protected int lastReproductionTick = -1;
     private int age = 0;
     protected Point position;
-    protected Map<String,Double> dna; // DNA carries animal traits and makes it easy for newborns to inherit their parents' traits
+    protected Map<String, Double> dna; // DNA carries animal traits and makes it easy for newborns to inherit their parents' traits
     protected double generation; // define generation of the animal ,
     protected double speed; // common traits among all Species
     protected double reproductionPower; // common traits among all Species
 
-    Random random=new Random();
+    protected boolean isPregnant = false;
+    protected int pregnancyStartTick = -1;
+    protected int pregnancyDurationTicks = 0;
+    protected Animal pregnancyPartner;
+
+    Random random = new Random();
 
 
     private final Gender gender;
@@ -57,7 +62,7 @@ public abstract class Animal {
         }
 
         reproductionPower = dna.getOrDefault("reproductionPower", 5.0);
-        speed=dna.getOrDefault("speed",5.0);
+        speed = dna.getOrDefault("speed", 5.0);
     }
 
     public Gender getGender() {
@@ -107,38 +112,31 @@ public abstract class Animal {
         this.lastReproductionTick = currentTick;
         partner.lastReproductionTick = currentTick;
 
+        // Only females get pregnant
+        Animal female = this.gender == Gender.FEMALE ? this : partner;
+        Animal male = this.gender == Gender.MALE ? this : partner;
+
+        if (!female.isPregnant) {
+            female.isPregnant = true;
+            female.pregnancyStartTick = currentTick;
+            female.pregnancyDurationTicks = female.getPregnancyDuration();
+            female.pregnancyPartner = male;
+
+            // Start of preg
+            System.out.println("Pregnancy started for " + female.getClass().getSimpleName() +
+                    " ID " + female.animalId + " at tick " + currentTick +
+                    ", duration: " + female.pregnancyDurationTicks + " ticks");
+        }
+
         // Subtract energy based on species and gender
         this.energyLevel -= getReproductionEnergyCost(this.gender);
         partner.energyLevel -= getReproductionEnergyCost(partner.gender);
 
-        Map<String,Double> babyDNA=new HashMap<>();
+        return null; // Baby created later in act()
 
-        for(String key:dna.keySet()){
-            if(!key.equals("generation")&& !key.equals("animalId")){
-                double parent1Value=dna.getOrDefault(key,5.0);
-                double parent2Value=dna.getOrDefault(key,5.0);
-                double avgValue=(parent1Value+parent2Value)/2;
-                if(random.nextDouble()<0.1){
-                        avgValue+=random.nextGaussian()*1;
-                        avgValue=Math.max(0,Math.min(avgValue,12));
-                    }
-                babyDNA.put(key,avgValue);
-                }
-
-        }
-
-        double parent1Gen=this.dna.get("generation");
-        double parent2Gen=partner.dna.get("generation");
-        babyDNA.put("generation",Math.max(parent1Gen,parent2Gen)+1);
-
-        // Create baby
-        Animal baby = createBaby(this.position.x, this.position.y);
-        babyDNA.put("animalId", (double) animalId);
-        baby.dna=babyDNA;
-        baby.energyLevel = getInitialBabyEnergy();
-
-        return baby;
     }
+
+    protected abstract int getPregnancyDuration();
 
     public int getLastReproductionTick() {
         return lastReproductionTick;
@@ -152,9 +150,52 @@ public abstract class Animal {
 
         boolean bothAnimalHaveEnergy = this.isFertile(currentTick) && otherAnimal.isFertile(currentTick);
         boolean isOppositeGender = this.gender != otherAnimal.gender;
-
-        return bothAnimalHaveEnergy && isOppositeGender;
+        boolean notPregnant = !this.isPregnant && !otherAnimal.isPregnant;
+        return bothAnimalHaveEnergy && isOppositeGender && notPregnant;
     }
+
+    protected void handlePregnancy(World world, List<Animal> babyAnimalHolder) {
+        if (isPregnant && (world.getTotalTicks() - pregnancyStartTick >= pregnancyDurationTicks)) {
+            // Create baby
+            Animal baby = createBaby(position.x, position.y);
+            baby.energyLevel = getInitialBabyEnergy();
+
+            // Initialize baby DNA
+            Map<String, Double> babyDNA = new HashMap<>();
+            for (String key : dna.keySet()) {
+                if (!key.equals("generation") && !key.equals("animalId")) {
+                    double parent1Value = dna.getOrDefault(key, 5.0);
+                    double parent2Value = pregnancyPartner != null ? pregnancyPartner.dna.getOrDefault(key, 5.0) : parent1Value;
+                    double avgValue = (parent1Value + parent2Value) / 2;
+                    if (random.nextDouble() < 0.1) {
+                        avgValue += random.nextGaussian() * 1;
+                        avgValue = Math.max(0, Math.min(avgValue, 12));
+                    }
+                    babyDNA.put(key, avgValue);
+                }
+            }
+            double parent1Gen = dna.get("generation");
+            double parent2Gen = pregnancyPartner != null ? pregnancyPartner.dna.getOrDefault("generation", 1.0) : parent1Gen;
+            babyDNA.put("generation", Math.max(parent1Gen, parent2Gen) + 1);
+            baby.dna = babyDNA; // Note: animalId set by constructor
+
+            // baby birth check
+            System.out.println("Baby " + baby.getClass().getSimpleName() + " ID " + baby.animalId +
+                    " born to " + this.getClass().getSimpleName() + " ID " + this.animalId +
+                    " at tick " + world.getTotalTicks() +
+                    " at position (" + position.x + "," + position.y + ")");
+
+            // Reset pregnancy
+            isPregnant = false;
+            pregnancyStartTick = -1;
+            pregnancyDurationTicks = 0;
+            pregnancyPartner = null;
+
+            // Add baby to the world
+            babyAnimalHolder.add(baby);
+        }
+    }
+
 
     public abstract boolean isFertile(int tick);
 
