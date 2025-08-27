@@ -111,6 +111,9 @@ public class Lion extends Animal {
 
     @Override
     public void act(World world, List<Animal> babyAnimalHolder, List<Animal> removedAnimalsHolder) {
+        // Handle pregnancy before other actions
+        handlePregnancy(world, babyAnimalHolder);
+
         DecisionInfo decisionInfo = animalDecisionMaking(world);
         Point nextPos = decisionInfo.nextPos();
 
@@ -137,10 +140,10 @@ public class Lion extends Animal {
                         .getAnimalAt(partnerlocation.x, partnerlocation.y);
 
                 if (partnerLion instanceof Lion otherLion && this.willMate(otherLion, world.getTotalTicks())) {
-                    Animal babyLion = this.reproduceWith(otherLion, world.getTotalTicks());
-                    babyAnimalHolder.add(babyLion);
+                     this.reproduceWith(otherLion, world.getTotalTicks());
                 }
             }
+
             case FLEE -> {
                 Point safeRandomPoint = decisionInfo.nextPos();
                 setPosition(safeRandomPoint, 5);
@@ -173,6 +176,11 @@ public class Lion extends Animal {
         return baseChance * (huntingPower / 9.5);
     }
 
+    @Override
+    protected int getPregnancyDuration() {
+        return 4; // 12 ticks = 12 seconds
+    }
+
     public boolean attemptHunting(int numOfAliveGoats) {
 
         return Math.random() < getHuntingChance(numOfAliveGoats);
@@ -184,7 +192,7 @@ public class Lion extends Animal {
 
     public int getReproductionCooldown(Gender gender) {
         // Use reproductionPower to adjust cooldown
-        int baseCooldown = gender == Gender.FEMALE ? 10 : 5;
+        int baseCooldown = gender == Gender.FEMALE ? 12 : 2;
         return (int)(baseCooldown / (reproductionPower) / 5.0);
     }
 
