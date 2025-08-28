@@ -47,14 +47,30 @@ public class Goat extends Animal {
         handlePregnancy(world, babyAnimalHolder);
 
         DecisionInfo decisionInfo = animalDecisionMaking(world);
-
+        int currentTick=world.getTotalTicks();
+        boolean canMove= lastMoveTick==-1 || (currentTick-lastMoveTick)>moveCooldown();
+        Point nextPos=decisionInfo.nextPos();
         switch (decisionInfo.type()) {
             case EAT:
-                if (world.hasGrass(decisionInfo.nextPos().x, decisionInfo.nextPos().y)) {
-                    eatGrass();
-                    world.removeGrass(decisionInfo.nextPos().x, decisionInfo.nextPos().y);
-                    setPosition(decisionInfo.nextPos(), 1);
-                    ;
+                if (world.hasGrass(nextPos.x, nextPos.y)) {
+
+                    if (!nextPos.equals(position)) {
+                        // Check if goat can move due to cooldown
+                        if (canMove) {
+                            eatGrass();
+                            world.removeGrass(nextPos.x, nextPos.y);
+                            setPosition(nextPos, isPregnant ? 2 : 1);
+                            lastMoveTick = currentTick;
+                            System.out.println("Goat ID " + animalId + " moved to eat at (" + nextPos.x + "," + nextPos.y + ") at tick " + currentTick);
+                        } else {
+                            setPosition(new Point(getX(), getY()), 0); // Stay put
+                            System.out.println("Goat ID " + animalId + " cannot move (cooldown) at tick " + currentTick);
+                        }
+                    } else {
+                        eatGrass();
+                        world.removeGrass(nextPos.x, nextPos.y);
+                        setPosition(nextPos, 0); // No move, no cost
+                    }
                 }
                 break;
             case REPRODUCE:
@@ -63,16 +79,35 @@ public class Goat extends Animal {
 
                 if (partnerGoat instanceof Goat otherGoat && this.willMate(otherGoat, world.getTotalTicks())) {
                     this.reproduceWith(otherGoat, world.getTotalTicks());
-//                    babyAnimalHolder.add(babyGoat);
                 }
                 break;
             case FLEE:
-                Point safeRandomPoint = decisionInfo.nextPos();
-                setPosition(safeRandomPoint, 5);
+                if (!nextPos.equals(position)) {
+                    if (canMove) {
+                        setPosition(nextPos, isPregnant ? 7 : 5);
+                        lastMoveTick = currentTick;
+                        System.out.println("Goat ID " + animalId + " at tick " + currentTick);
+                    } else {
+                        setPosition(new Point(getX(), getY()), 0);
+                        System.out.println("Goat ID " + animalId + " cannot flee at tick " + currentTick);
+                    }
+                } else {
+                    setPosition(nextPos, 0); // No move, no cost
+                }
                 break;
             case WANDER:
-                Point randomMove = decisionInfo.nextPos();
-                setPosition(randomMove, 1);
+                if (!nextPos.equals(position)) {
+                    if (canMove) {
+                        setPosition(nextPos, isPregnant ? 2 : 1);
+                        lastMoveTick = currentTick;
+                        System.out.println("Goat ID " + animalId + " wandered to (" + nextPos.x + "," + nextPos.y + ") at tick " + currentTick);
+                    } else {
+                        setPosition(new Point(getX(), getY()), 0);
+                        System.out.println("Goat ID " + animalId + " cannot wander (cooldown) at tick " + currentTick);
+                    }
+                } else {
+                    setPosition(nextPos, 0); // Stay in place
+                }
                 break;
 
         }
@@ -202,6 +237,13 @@ public class Goat extends Animal {
     @Override
     public int getReproductionEnergyCost(Gender gender) {
         return gender == Gender.FEMALE ? 7 : 5;
+
+    }
+
+    @Override
+    public int moveCooldown(){
+        double speed=dna.get("speed");
+        return (int)Math.max(3,10-speed);
 
     }
 

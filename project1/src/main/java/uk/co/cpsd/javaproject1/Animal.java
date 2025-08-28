@@ -21,6 +21,7 @@ public abstract class Animal {
     protected double generation; // define generation of the animal ,
     protected double speed; // common traits among all Species
     protected double reproductionPower; // common traits among all Species
+    protected int lastMoveTick=-1;
 
     protected boolean isPregnant = false;
     protected int pregnancyStartTick = -1;
@@ -96,6 +97,8 @@ public abstract class Animal {
     public abstract boolean isHungry();
 
     public abstract DecisionInfo animalDecisionMaking(World world);
+
+    public abstract int moveCooldown();
 
     public void setPosition(Point point, int cost) {
         applyMovementCost(cost);

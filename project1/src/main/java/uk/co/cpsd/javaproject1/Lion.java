@@ -117,43 +117,72 @@ public class Lion extends Animal {
         DecisionInfo decisionInfo = animalDecisionMaking(world);
         Point nextPos = decisionInfo.nextPos();
 
+        int currentTick=world.getTotalTicks();
+        boolean canMove= lastMoveTick==-1 || (currentTick-lastMoveTick)>moveCooldown();
+
         switch (decisionInfo.type()) {
             case EAT -> {
                 if (world.getAnimalAt(nextPos.x, nextPos.y) instanceof Goat) {
                     int currentAliveGoats = world.getNumOfAliveGoats();
                     boolean successfulHunt = attemptHunting(world.getNumOfAliveGoats()) && currentAliveGoats > 10;
                     if (successfulHunt) {
-                        eatGoat();
-                        world.removeAnimal(nextPos.x, nextPos.y, removedAnimalsHolder);
-                        setPosition(nextPos, 3);
+                        if (!nextPos.equals(position)) {
+                            if (canMove) {
+                                eatGoat();
+                                world.removeAnimal(nextPos.x, nextPos.y, removedAnimalsHolder);
+                                setPosition(nextPos, 3);
+                                lastMoveTick = currentTick;
+                            } else {
+                                setPosition(new Point(getX(), getY()), 0);
+                            }
+                        } else {
+                            eatGoat();
+                            world.removeAnimal(nextPos.x, nextPos.y, removedAnimalsHolder);
+                            setPosition(nextPos, 0);
+                        }
+
                     } else {
                         Point samePosition = new Point(this.getX(), this.getY());
                         setPosition(samePosition, 5);
-//                        System.out.println("=============Hunting failed=============");
                     }
 
                 }
             }
             case REPRODUCE -> {
-                Point partnerlocation = decisionInfo.nextPos();
+                Point partnerLocation = decisionInfo.nextPos();
                 Animal partnerLion = world
-                        .getAnimalAt(partnerlocation.x, partnerlocation.y);
+                        .getAnimalAt(partnerLocation.x, partnerLocation.y);
 
-                if (partnerLion instanceof Lion otherLion && this.willMate(otherLion, world.getTotalTicks())) {
-                     this.reproduceWith(otherLion, world.getTotalTicks());
+                if (partnerLion instanceof Lion otherLion && this.willMate(otherLion, currentTick)) {
+                     this.reproduceWith(otherLion, currentTick);
                 }
             }
 
             case FLEE -> {
-                Point safeRandomPoint = decisionInfo.nextPos();
-                setPosition(safeRandomPoint, 5);
+                if (!nextPos.equals(position)) {
+                    if (canMove) {
+                        setPosition(nextPos, isPregnant ? 7 : 5);
+                        lastMoveTick = currentTick;
+                        System.out.println("Lion ID " + animalId + " fled to (" + nextPos.x + "," + nextPos.y + ") at tick " + currentTick);
+                    } else {
+                        setPosition(new Point(getX(), getY()), 0);
+                        System.out.println("Lion ID " + animalId + " cannot flee (cooldown) at tick " + currentTick);
+                    }
+                } else {
+                    setPosition(nextPos, 0);
+                }
+                break;
             }
             case WANDER -> {
-                Point randomMove = decisionInfo.nextPos();
-                if (randomMove.x == getX() && randomMove.y == getY()) {
-                    setPosition(randomMove, 0);
+                if (!nextPos.equals(position)) {
+                    if (canMove) {
+                        setPosition(nextPos, isPregnant ? 2 : 1);
+                        lastMoveTick = currentTick;
+                    } else {
+                        setPosition(new Point(getX(), getY()), 0);
+                    }
                 } else {
-                    setPosition(randomMove, 1);
+                    setPosition(nextPos, 0);
                 }
 
             }
@@ -162,7 +191,6 @@ public class Lion extends Animal {
     }
 
     public boolean hasReachedEndOfLife() {
-//        System.out.println("-------LION reached end of its life-------------");
         return this.getAge() > Lion_MAX_AGE;
     }
 
@@ -210,6 +238,14 @@ public class Lion extends Animal {
                 - this.lastReproductionTick >= getReproductionCooldown(this.getGender());
         boolean hasEnergy = this.energyLevel >= getReproductionEnergyCost(this.getGender());
         return sinceLastReproduce && hasEnergy;
+    }
+
+    @Override
+    public int moveCooldown(){
+        double speed=dna.get("speed");
+        // at the moment lions are slower than Goats
+        return (int)Math.max(4,10-speed);
+
     }
 
 }
