@@ -17,8 +17,7 @@ public abstract class Animal {
     protected int lastReproductionTick = -1;
     private int age = 0;
     protected Point position;
-    protected Map<String, Double> dna; // DNA carries animal traits and makes it easy for newborns to inherit their parents' traits
-    protected double generation; // define generation of the animal ,
+    protected int generation; // define generation of the animal ,
     protected double speed; // common traits among all Species
     protected double reproductionPower; // common traits among all Species
     protected int lastMoveTick=-1;
@@ -27,6 +26,8 @@ public abstract class Animal {
     protected int pregnancyStartTick = -1;
     protected int pregnancyDurationTicks = 0;
     protected Animal pregnancyPartner;
+
+    protected DNA dna=new DNA();
 
     Random random = new Random();
 
@@ -53,17 +54,26 @@ public abstract class Animal {
         this.gender = Math.random() < .5 ? Gender.MALE : Gender.FEMALE;
         this.animalId = idCounter.getAndIncrement();
 
-        // Initialize DNA only if not set (for babies)
-        if (dna == null) {
-            dna = new HashMap<>();
-            dna.put("reproductionPower", 5.0 + random.nextDouble() * 2); // Random 5-7
-            dna.put("speed", 5.0 + random.nextDouble() * 2); // Random 5-7
-            dna.put("generation", 1.0); // Initial animals are Gen 1
-            dna.put("animalId", (double) animalId);
+        // Initialize DNA traits if not already present
+        if (!dna.hasTraits("reproductionPower")) {
+            dna.setTrait("reproductionPower", 5.0 + random.nextDouble() * 2); // Random 5-7
+        }
+        if (!dna.hasTraits("speed")) {
+            dna.setTrait("speed", 5.0 + random.nextDouble() * 2); // Random 5-7
+        }
+        if (!dna.hasTraits("generation")) {
+            dna.setTrait("generation", 1); // Initial generation
+        }
+        if (!dna.hasTraits("animalId")) {
+            dna.setTrait("animalId", animalId); // store as Integer
         }
 
-        reproductionPower = dna.getOrDefault("reproductionPower", 5.0);
-        speed = dna.getOrDefault("speed", 5.0);
+        if(!dna.hasTraits("parentsId")){
+            dna.setTrait("parentId","f0m0");
+        }
+
+        reproductionPower = dna.getTrait("reproductionPower", Double.class);
+        speed = dna.getTrait("speed", Double.class);
     }
 
     public Gender getGender() {
@@ -158,35 +168,61 @@ public abstract class Animal {
     }
 
     protected void handlePregnancy(World world, List<Animal> babyAnimalHolder) {
+
         if (isPregnant && (world.getTotalTicks() - pregnancyStartTick >= pregnancyDurationTicks)) {
             // Create baby
             Animal baby = createBaby(position.x, position.y);
             baby.energyLevel = getInitialBabyEnergy();
 
             // Initialize baby DNA
-            Map<String, Double> babyDNA = new HashMap<>();
-            for (String key : dna.keySet()) {
-                if (!key.equals("generation") && !key.equals("animalId")) {
-                    double parent1Value = dna.getOrDefault(key, 5.0);
-                    double parent2Value = pregnancyPartner != null ? pregnancyPartner.dna.getOrDefault(key, 5.0) : parent1Value;
-                    double avgValue = (parent1Value + parent2Value) / 2;
+            //  Map<String, Double> babyDNA = new HashMap<>();
+            DNA babyDNA=new DNA();
+            for (String key : dna.getTraitsName()) {
+
+                if (key.equals("generation") || key.equals("animalId") || key.equals("parentsId")) {
+                    continue;
+                }
+
+                Object parent1Value = dna.getTrait(key, Object.class); // Mother's value
+                Object parent2Value = pregnancyPartner != null ?
+                        pregnancyPartner.dna.getTrait(key, Object.class) : parent1Value;
+
+                if (parent1Value instanceof Number && parent2Value instanceof Number) {
+
+                    double val1 = ((Number) parent1Value).doubleValue();
+                    double val2 = ((Number) parent2Value).doubleValue();
+                    double avgValue = (val1 + val2) / 2.0;
                     if (random.nextDouble() < 0.1) {
-                        avgValue += random.nextGaussian() * 1;
+                        avgValue += random.nextGaussian();
                         avgValue = Math.max(0, Math.min(avgValue, 12));
                     }
-                    babyDNA.put(key, avgValue);
+                    babyDNA.setTrait(key, avgValue);
+                } else {
+                    babyDNA.setTrait(key, parent1Value);
                 }
             }
-            double parent1Gen = dna.get("generation");
-            double parent2Gen = pregnancyPartner != null ? pregnancyPartner.dna.getOrDefault("generation", 1.0) : parent1Gen;
-            babyDNA.put("generation", Math.max(parent1Gen, parent2Gen) + 1);
-            baby.dna = babyDNA; // Note: animalId set by constructor
+
+            Integer parent1Gen = dna.getTrait("generation", Integer.class);
+            Integer parent2Gen = pregnancyPartner != null ?
+                    pregnancyPartner.dna.getTrait("generation", Integer.class) : parent1Gen;
+            babyDNA.setTrait("generation", Math.max(parent1Gen, parent2Gen) + 1);
+
+            babyDNA.setTrait("animalId", baby.animalId);
+
+            //parentsId
+            String parentsId = "f" + this.animalId + "m" + (pregnancyPartner != null ? pregnancyPartner.animalId : 0);
+            babyDNA.setTrait("parentsId", parentsId);
+
+            baby.dna = babyDNA;
 
             // baby birth check
             System.out.println("Baby " + baby.getClass().getSimpleName() + " ID " + baby.animalId +
                     " born to " + this.getClass().getSimpleName() + " ID " + this.animalId +
                     " at tick " + world.getTotalTicks() +
                     " at position (" + position.x + "," + position.y + ")");
+
+            // Log the baby's traits to CSV
+            world.writeAnimalTraitsToCSV(baby);
 
             // Reset pregnancy
             isPregnant = false;
