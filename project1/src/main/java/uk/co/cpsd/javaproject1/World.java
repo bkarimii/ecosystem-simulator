@@ -19,6 +19,7 @@ public class World {
     private int numOfAliveGoats = 0;
     private boolean isGUIMode;
     private final AudioPlayer player;
+    private static boolean isFirstWrite = true;
 
     public World(int numOfGoats, int numOfLions, boolean isGUIMode, AudioPlayer player) {
         animals = new ArrayList<>();
@@ -221,16 +222,19 @@ public class World {
     }
 
     public void writeAnimalTraitsToCSV(Animal animal) {
-        try (FileWriter csvData = new FileWriter("animal_traits.csv", false)) {
+        try (FileWriter csvData = new FileWriter("animal_traits.csv", !isFirstWrite)) {
+            if (isFirstWrite) {
 
-            if (new java.io.File("animal_traits.csv").length() == 0) {
                 Set<String> traitKeys = animal.dna.getTraitsName();
                 StringBuilder header = new StringBuilder("Tick,AnimalId,Species");
                 for (String key : traitKeys) {
-                    header.append(",").append(key);
+                    if (!key.equals("animalId")) {
+                        header.append(",").append(key);
+                    }
                 }
                 header.append("\n");
                 csvData.write(header.toString());
+                isFirstWrite = false; // Mark file as initialized
             }
 
             // Write animal data
@@ -239,11 +243,12 @@ public class World {
             row.append(animal.getId()).append(",");
             row.append(animal.getClass().getSimpleName());
 
-            // Get all possible trait keys
             Set<String> traitKeys = animal.dna.getTraitsName();
             for (String key : traitKeys) {
-                Object value = animal.dna.getTrait(key, Object.class);
-                row.append(",").append(value != null ? value.toString() : "");
+                if (!key.equals("animalId")) {
+                    Object value = animal.dna.getTrait(key, Object.class);
+                    row.append(",").append(value != null ? value.toString() : "");
+                }
             }
             row.append("\n");
             csvData.write(row.toString());
