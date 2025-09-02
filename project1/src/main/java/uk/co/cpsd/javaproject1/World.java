@@ -2,10 +2,7 @@ package uk.co.cpsd.javaproject1;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 import java.awt.Point;
 
@@ -26,11 +23,18 @@ public class World {
     public World(int numOfGoats, int numOfLions, boolean isGUIMode, AudioPlayer player) {
         animals = new ArrayList<>();
         for (int i = 0; i < numOfGoats; i++) {
-            animals.add(new Goat((int) (Math.random() * size), (int) (Math.random() * size)));
+//            animals.add(new Goat((int) (Math.random() * size), (int) (Math.random() * size)));
+            Animal goat = new Goat((int) (Math.random() * size), (int) (Math.random() * size));
+            animals.add(goat);
+            writeAnimalTraitsToCSV(goat); // Log traits for goats
+
         }
 
         for (int j = 0; j < numOfLions; j++) {
-            animals.add(new Lion((int) (Math.random() * size), (int) (Math.random() * size)));
+//            animals.add(new Lion((int) (Math.random() * size), (int) (Math.random() * size)));
+            Animal lion = new Lion((int) (Math.random() * size), (int) (Math.random() * size));
+            animals.add(lion);
+            writeAnimalTraitsToCSV(lion); // Log traits for initial lions
         }
         this.isGUIMode = isGUIMode;
         this.player = player;
@@ -214,5 +218,37 @@ public class World {
 
     public int getNumOfAliveGoats() {
         return numOfAliveGoats;
+    }
+
+    public void writeAnimalTraitsToCSV(Animal animal) {
+        try (FileWriter csvData = new FileWriter("animal_traits.csv", true)) {
+
+            if (new java.io.File("animal_traits.csv").length() == 0) {
+                Set<String> traitKeys = animal.dna.getTraitsName();
+                StringBuilder header = new StringBuilder("Tick,AnimalId,Species");
+                for (String key : traitKeys) {
+                    header.append(",").append(key);
+                }
+                header.append("\n");
+                csvData.write(header.toString());
+            }
+
+            // Write animal data
+            StringBuilder row = new StringBuilder();
+            row.append(totalTicks).append(",");
+            row.append(animal.getId()).append(",");
+            row.append(animal.getClass().getSimpleName());
+
+            // Get all possible trait keys
+            Set<String> traitKeys = animal.dna.getTraitsName();
+            for (String key : traitKeys) {
+                Object value = animal.dna.getTrait(key, Object.class);
+                row.append(",").append(value != null ? value.toString() : "");
+            }
+            row.append("\n");
+            csvData.write(row.toString());
+        } catch (IOException e) {
+            System.out.println("Error writing to animal_traits.csv: " + e);
+        }
     }
 }

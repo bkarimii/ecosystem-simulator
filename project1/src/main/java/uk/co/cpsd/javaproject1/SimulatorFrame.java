@@ -41,6 +41,8 @@ public class SimulatorFrame extends JFrame {
             }
         });
 
+
+
         // Start the simulation
         timer.start();
 
