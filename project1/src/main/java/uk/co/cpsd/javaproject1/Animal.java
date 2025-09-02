@@ -56,11 +56,17 @@ public abstract class Animal {
 
         // Initialize DNA traits if not already present
         if (!dna.hasTraits("reproductionPower")) {
-            dna.setTrait("reproductionPower", 5.0 + random.nextDouble() * 2); // Random 5-7
+            double reproductionPower = 5.0 + random.nextDouble() * 2; // Random 5-7
+            reproductionPower = Math.round(reproductionPower * 100.0) / 100.0; // Round to 2 decimals
+            dna.setTrait("reproductionPower", reproductionPower);
         }
+
         if (!dna.hasTraits("speed")) {
-            dna.setTrait("speed", 5.0 + random.nextDouble() * 2); // Random 5-7
+            double speed = 5.0 + random.nextDouble() * 2; // Random 5-7
+            speed = Math.round(speed * 100.0) / 100.0; // Round to 2 decimals
+            dna.setTrait("speed", speed);
         }
+
         if (!dna.hasTraits("generation")) {
             dna.setTrait("generation", 1); // Initial generation
         }

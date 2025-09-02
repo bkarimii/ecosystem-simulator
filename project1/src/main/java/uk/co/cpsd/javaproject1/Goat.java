@@ -21,7 +21,9 @@ public class Goat extends Animal {
         this.setLastReproductionTick(0);
         Random random = new Random();
         if (!dna.hasTraits("fleeingPower")) {
-            dna.setTrait("fleeingPower", 7.0 + new Random().nextDouble() * 2 - 1); // Random 6-8
+            double fleeingPower = 7.0 + new Random().nextDouble() * 2 - 1; // Random 6-8
+            fleeingPower = Math.round(fleeingPower * 100.0) / 100.0;       // Round to 2 decimals
+            dna.setTrait("fleeingPower", fleeingPower);
         }
         fleeingPower = dna.getTrait("fleeingPower", Double.class);
     }

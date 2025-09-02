@@ -21,7 +21,9 @@ public class Lion extends Animal {
         super(x, y, 40);
         Random random=new Random();
         if (!dna.hasTraits("huntingPower")) {
-            dna.setTrait("huntingPower", 7.0 + new Random().nextDouble() * 3); // Random 7-10
+            double huntingPower = 7.0 + new Random().nextDouble() * 3; // Random 7-10
+            huntingPower = Math.round(huntingPower * 100.0) / 100.0;    // Round to 2 decimals
+            dna.setTrait("huntingPower", huntingPower);
         }
 
         huntingPower=dna.getTrait("huntingPower",Double.class);
