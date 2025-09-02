@@ -196,6 +196,7 @@ public abstract class Animal {
                         avgValue += random.nextGaussian();
                         avgValue = Math.max(0, Math.min(avgValue, 12));
                     }
+                    avgValue = Math.round(avgValue * 100.0) / 100.0;
                     babyDNA.setTrait(key, avgValue);
                 } else {
                     babyDNA.setTrait(key, parent1Value);

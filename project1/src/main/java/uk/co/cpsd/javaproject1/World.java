@@ -221,7 +221,7 @@ public class World {
     }
 
     public void writeAnimalTraitsToCSV(Animal animal) {
-        try (FileWriter csvData = new FileWriter("animal_traits.csv", true)) {
+        try (FileWriter csvData = new FileWriter("animal_traits.csv", false)) {
 
             if (new java.io.File("animal_traits.csv").length() == 0) {
                 Set<String> traitKeys = animal.dna.getTraitsName();
