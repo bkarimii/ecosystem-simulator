@@ -20,11 +20,11 @@ public class Lion extends Animal {
     public Lion(int x, int y) {
         super(x, y, 40);
         Random random=new Random();
-        if (!dna.containsKey("huntingPower")) {
-            dna.put("huntingPower", 7.0 + new Random().nextDouble() * 3); // Random 7-10
+        if (!dna.hasTraits("huntingPower")) {
+            dna.setTrait("huntingPower", 7.0 + new Random().nextDouble() * 3); // Random 7-10
         }
 
-        huntingPower=dna.getOrDefault("huntingPower",8.0);
+        huntingPower=dna.getTrait("huntingPower",Double.class);
     }
 
     @Override
@@ -242,7 +242,7 @@ public class Lion extends Animal {
 
     @Override
     public int moveCooldown(){
-        double speed=dna.get("speed");
+        double speed=dna.getTrait("speed", Double.class);
         // at the moment lions are slower than Goats
         return (int)Math.max(4,10-speed);
 

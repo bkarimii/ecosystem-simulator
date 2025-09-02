@@ -20,10 +20,10 @@ public class Goat extends Animal {
         super(x, y, 40);
         this.setLastReproductionTick(0);
         Random random = new Random();
-        if (!dna.containsKey("fleeingPower")) {
-            dna.put("fleeingPower", 7.0 + new Random().nextDouble() * 2 - 1); // Random 6-8
+        if (!dna.hasTraits("fleeingPower")) {
+            dna.setTrait("fleeingPower", 7.0 + new Random().nextDouble() * 2 - 1); // Random 6-8
         }
-        fleeingPower = dna.getOrDefault("fleeingPower", 8.0);
+        fleeingPower = dna.getTrait("fleeingPower", Double.class);
     }
 
     public void eatGrass() {
@@ -242,7 +242,7 @@ public class Goat extends Animal {
 
     @Override
     public int moveCooldown(){
-        double speed=dna.get("speed");
+        double speed=dna.getTrait("speed",Double.class);
         return (int)Math.max(3,10-speed);
 
     }
