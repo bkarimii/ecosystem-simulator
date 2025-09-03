@@ -224,36 +224,38 @@ public class World {
     public void writeAnimalTraitsToCSV(Animal animal) {
         try (FileWriter csvData = new FileWriter("animal_traits.csv", !isFirstWrite)) {
             if (isFirstWrite) {
-
-                Set<String> traitKeys = animal.dna.getTraitsName();
-                StringBuilder header = new StringBuilder("Tick,AnimalId,Species");
-                for (String key : traitKeys) {
-                    if (!key.equals("animalId")) {
-                        header.append(",").append(key);
-                    }
-                }
-                header.append("\n");
-                csvData.write(header.toString());
+                csvData.write("Tick,AnimalId,Species,generation,fleeingPower,huntingPower,speed,parentsId,reproductionPower\n");
                 isFirstWrite = false; // Mark file as initialized
             }
 
-            // Write animal data
             StringBuilder row = new StringBuilder();
             row.append(totalTicks).append(",");
             row.append(animal.getId()).append(",");
-            row.append(animal.getClass().getSimpleName());
+            row.append(animal.getClass().getSimpleName()).append(",");
 
-            Set<String> traitKeys = animal.dna.getTraitsName();
-            for (String key : traitKeys) {
-                if (!key.equals("animalId")) {
-                    Object value = animal.dna.getTrait(key, Object.class);
-                    row.append(",").append(value != null ? value.toString() : "");
-                }
-            }
+            Integer generation = animal.dna.getTrait("generation", Integer.class);
+            row.append(generation != null ? generation : 1).append(",");
+
+            Double fleeingPower = animal.dna.getTrait("fleeingPower", Double.class);
+            row.append(fleeingPower != null ? fleeingPower : 0.0).append(",");
+
+            Double huntingPower = animal.dna.getTrait("huntingPower", Double.class);
+            row.append(huntingPower != null ? huntingPower : 0.0).append(",");
+
+            Double speed = animal.dna.getTrait("speed", Double.class);
+            row.append(speed != null ? speed : 0.0).append(",");
+
+            String parentsId = animal.dna.getTrait("parentsId", String.class);
+            row.append(parentsId != null ? parentsId : "f0m0").append(",");
+
+            Double reproductionPower = animal.dna.getTrait("reproductionPower", Double.class);
+            row.append(reproductionPower != null ? reproductionPower : 0.0);
+
             row.append("\n");
             csvData.write(row.toString());
         } catch (IOException e) {
             System.out.println("Error writing to animal_traits.csv: " + e);
         }
     }
+
 }
