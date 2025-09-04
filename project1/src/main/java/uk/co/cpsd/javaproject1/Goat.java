@@ -170,10 +170,9 @@ public class Goat extends Animal {
             }
         }
 
-
-        // 5. Default: Random move
-        Point randomMove = findRandomPos(scannedNeighbourHoodByGoat);
-        return new DecisionInfo(DecisionType.WANDER, randomMove);
+        // 5. Wander: Use bestMove if available, otherwise fall back to random move
+        Point moveTo = bestMove != null ? bestMove : findRandomPos(scannedNeighbourHoodByGoat);
+        return new DecisionInfo(DecisionType.WANDER, moveTo);
     }
 
     public Point findRandomSafePos(Map<Point, List<Object>> neighbourHoodPos) {
