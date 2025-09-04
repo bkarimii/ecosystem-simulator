@@ -9,7 +9,8 @@ public class Main {
     public static void main(String[] args) {
 
         try {
-
+            // test comment
+            AudioPlayer player = AudioPlayerFactory.createAudioPlayer();
             Scanner userInput = new Scanner(System.in);
 
             System.out.println(
@@ -30,11 +31,12 @@ public class Main {
             userInput.close();
 
             if (typeOfSimulation == 1) {
-                SimulatorRunner.noGUISimulation(timeOfSimulation, numOfGoats, numOfLions, isGUIMode);
+                SimulatorRunner.noGUISimulation(timeOfSimulation, numOfGoats, numOfLions, isGUIMode, player);
             } else if (typeOfSimulation == 2) {
                 SwingUtilities.invokeLater(() -> {
                     @SuppressWarnings("unused")
-                    SimulatorFrame frame = new SimulatorFrame(timeOfSimulation, numOfGoats, numOfLions, isGUIMode);
+                    SimulatorFrame frame = new SimulatorFrame(timeOfSimulation, numOfGoats, numOfLions, isGUIMode,
+                            player);
 
                 });
             }

@@ -4,9 +4,10 @@ import javax.sound.sampled.*;
 import java.io.IOException;
 import java.net.URL;
 
-public class SoundPlayer {
+public class SoundPlayer implements AudioPlayer {
 
-    public static void playSound(String resourcePath) {
+    @Override
+    public void playSound(String resourcePath) {
         try {
             URL soundURL = SoundPlayer.class.getResource(resourcePath);
             if (soundURL == null) {
@@ -21,4 +22,11 @@ public class SoundPlayer {
             e.printStackTrace();
         }
     }
+
+    @Override
+    public boolean isAudioSupported() {
+
+        return true;
+    }
+
 }

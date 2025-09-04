@@ -13,17 +13,17 @@ import java.awt.Point;
 
 public class Goat extends Animal {
 
-    public final int HUNGER_TRESHHOLDS = 50;
+    public final int HUNGER_THRESHOLDS = 30;
     public final int GOAT_MAX_AGE = 60;
 
     public Goat(int x, int y) {
-        super(x, y, 10);
+        super(x, y, 40);
         this.setLastReproductionTick(0);
     }
 
     public void eatGrass() {
-        this.energyLevel += 12;
-        System.out.println(energyLevel);
+        this.energyLevel += 20;
+        System.out.println(energyLevel+"<=====Energy level====");
     }
 
     @Override
@@ -33,37 +33,39 @@ public class Goat extends Animal {
 
     @Override
     public boolean isHungry() {
-        return this.energyLevel < HUNGER_TRESHHOLDS;
+        return this.energyLevel < HUNGER_THRESHOLDS;
     }
 
     @Override
     public void act(World world, List<Animal> babyAnimalHolder, List<Animal> removedAnimalsHolder) {
         DecisionInfo decisionInfo = animalDecisionMaking(world);
 
-        switch (decisionInfo.getType()) {
+        switch (decisionInfo.type()) {
             case EAT:
-                if (world.hasGrass(decisionInfo.getNextPos().x, decisionInfo.getNextPos().y)) {
+                if (world.hasGrass(decisionInfo.nextPos().x, decisionInfo.nextPos().y)) {
                     eatGrass();
-                    world.removeGrass(decisionInfo.getNextPos().x, decisionInfo.getNextPos().y);
-                    setPosition(decisionInfo.getNextPos(), 1);
+                    world.removeGrass(decisionInfo.nextPos().x, decisionInfo.nextPos().y);
+                    setPosition(decisionInfo.nextPos(), 1);
                     ;
                 }
                 break;
             case REPRODUCE:
-                Point partnerlocation = decisionInfo.getNextPos();
-                Animal partnerGoat = world.getAnimalAt(partnerlocation.x, partnerlocation.y);
+                Point partnerLocation = decisionInfo.nextPos();
+                Animal partnerGoat = world.getAnimalAt(partnerLocation.x, partnerLocation.y);
 
-                if (partnerGoat instanceof Goat otherGoat && this.isFertile(otherGoat, world.getTotalTicks())) {
+                if (partnerGoat instanceof Goat otherGoat && this.willMate(otherGoat, world.getTotalTicks())) {
                     Animal babyGoat = this.reproduceWithTwo(otherGoat, world.getTotalTicks());
                     babyAnimalHolder.add(babyGoat);
                 }
                 break;
             case FLEE:
-                Point safeRandomPoint = decisionInfo.getNextPos();
+                Point safeRandomPoint = decisionInfo.nextPos();
                 setPosition(safeRandomPoint, 5);
+                break;
             case WANDER:
-                Point randomMove = decisionInfo.getNextPos();
+                Point randomMove = decisionInfo.nextPos();
                 setPosition(randomMove, 1);
+                break;
 
         }
     }
@@ -73,7 +75,13 @@ public class Goat extends Animal {
 
         Map<Point, List<Object>> scanedNeighbourHoodByGoat = world.scanNeighbour(getX(), getY());
 
-        // 1. Priority: Eat if hungry
+        // 1. Priority: Flee from danger
+        Point safe = findRandomSafePos(scanedNeighbourHoodByGoat);
+        if (!safe.equals(new Point(getX(), getY()))) {
+            return new DecisionInfo(DecisionType.FLEE, safe);
+        }
+
+        // 2. Priority: Eat if hungry
         if (isHungry()) {
             for (Map.Entry<Point, List<Object>> entry : scanedNeighbourHoodByGoat.entrySet()) {
                 if (entry.getValue().contains("grass")) {
@@ -82,19 +90,13 @@ public class Goat extends Animal {
             }
         }
 
-        // 2. Priority: Reproduce (check nearby goats)
+        // 3. Priority: Reproduce (check nearby goats)
         for (Map.Entry<Point, List<Object>> entry : scanedNeighbourHoodByGoat.entrySet()) {
             for (Object obj : entry.getValue()) {
-                if (obj instanceof Goat otherGoat && this.isFertile(otherGoat, world.getTotalTicks())) {
+                if (obj instanceof Goat otherGoat && this.willMate(otherGoat, world.getTotalTicks())) {
                     return new DecisionInfo(DecisionType.REPRODUCE, entry.getKey());
                 }
             }
-        }
-
-        // 3. Priority: Flee from danger
-        Point safe = findRandomSafePos(scanedNeighbourHoodByGoat);
-        if (!safe.equals(new Point(getX(), getY()))) {
-            return new DecisionInfo(DecisionType.FLEE, safe);
         }
 
         // 4. Default: Random move
@@ -103,18 +105,50 @@ public class Goat extends Animal {
     }
 
     public Point findRandomSafePos(Map<Point, List<Object>> neighbourHoodPos) {
-        List<Point> safeTiles = neighbourHoodPos.entrySet()
-                .stream()
-                .filter(e -> !e.getValue().contains("lion"))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-        if (!safeTiles.isEmpty()) {
-            return safeTiles.get(new Random().nextInt(safeTiles.size()));
+        Point lionPos = null;
+        // find the position of the lion
+        for (Map.Entry<Point, List<Object>> entry : neighbourHoodPos.entrySet()) {
+            for (Object obj : entry.getValue()) {
+                if (obj instanceof Lion) {
+                    lionPos = entry.getKey();
+                    break;
+                }
+            }
+            if (lionPos != null) {
+                break;
+            }
         }
 
-        // All tiles are dangerous stay in its place
-        return new Point(this.getX(), this.getY());
+        if (lionPos == null) {
+            return new Point(this.getX(), this.getY());
+        }
+
+        // find the safest tile
+        Point safestTile = null;
+        double maxDistance = -1;
+
+        for (Point potentialTile : neighbourHoodPos.keySet()) {
+            boolean hasLion = false;
+            List<Object> objectsAtTile = neighbourHoodPos.get(potentialTile);
+            if (objectsAtTile != null) {
+                for (Object obj : objectsAtTile) {
+                    if (obj instanceof Lion) {
+                        hasLion = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!hasLion) {
+                double distance = potentialTile.distanceSq(lionPos); // distanceSq is faster than distance
+                if (distance > maxDistance) {
+                    maxDistance = distance;
+                    safestTile = potentialTile;
+                }
+            }
+        }
+
+        return safestTile != null ? safestTile : new Point(this.getX(), this.getY());
     }
 
     public Point findRandomPos(Map<Point, List<Object>> neighbourHoodPos) {
@@ -126,7 +160,7 @@ public class Goat extends Animal {
     }
 
     @Override
-    public int getEnergyCost(Gender gender) {
+    public int getReproductionEnergyCost(Gender gender) {
         return gender == Gender.FEMALE ? 7 : 5;
 
     }
@@ -146,8 +180,17 @@ public class Goat extends Animal {
         return gender == Gender.FEMALE ? 4 : 2;
     }
 
-    public boolean isTooOld() {
+    public boolean hasReachedEndOfLife() {
         return this.getAge() > GOAT_MAX_AGE;
+    }
+
+    @Override
+    public boolean isFertile(int currentTick) {
+
+        boolean sinceLastReproduce = currentTick
+                - this.lastReproductionTick >= getReproductionCooldown(this.getGender());
+        boolean hasEnergy = this.energyLevel >= getReproductionEnergyCost(this.getGender());
+        return sinceLastReproduce && hasEnergy;
     }
 
 }

@@ -21,17 +21,19 @@ public class World {
     public static int numOfDeadGoats = 0;
     private int numOfAliveGoats = 0;
     private boolean isGUIMode;
+    private final AudioPlayer player;
 
-    public World(int numOfGoats, int numOfLions, boolean isGUIMode) {
+    public World(int numOfGoats, int numOfLions, boolean isGUIMode, AudioPlayer player) {
         animals = new ArrayList<>();
         for (int i = 0; i < numOfGoats; i++) {
             animals.add(new Goat((int) (Math.random() * size), (int) (Math.random() * size)));
         }
 
         for (int j = 0; j < numOfLions; j++) {
-            animals.add(new Lion((int) Math.random() * size, (int) Math.random() * size));
+            animals.add(new Lion((int) (Math.random() * size), (int) (Math.random() * size)));
         }
         this.isGUIMode = isGUIMode;
+        this.player = player;
     }
 
     public List<Integer> getGoatPopulationHistory() {
@@ -50,11 +52,11 @@ public class World {
         return grassDeathTime[x][y] > totalTicks;
     }
 
-    public int findNumOfGoats() {
+    public int goatCount() {
         return (int) animals.stream().filter(animal -> animal instanceof Goat).count();
     }
 
-    public int findNumOfLions() {
+    public int lionCount() {
         return (int) animals.stream().filter(animal -> animal instanceof Lion).count();
     }
 
@@ -62,7 +64,7 @@ public class World {
         return animals;
     }
 
-    public int findNumOfGrass() {
+    public int grassCount() {
         int numOfGrass = 0;
         for (int x = 0; x < size; x++) {
             for (int y = 0; y < size; y++) {
@@ -118,6 +120,7 @@ public class World {
     }
 
     public void tick() {
+        numOfAliveGoats=0;
         List<Animal> babyAnimalHolder = new ArrayList<>();
         List<Animal> removedAnimalsHolder = new ArrayList<>();
         totalTicks++;
@@ -125,29 +128,32 @@ public class World {
             growGrass();
         }
 
-        if (isGUIMode && totalTicks % 7 == 0) {
-            SoundPlayer.playSound("/roar.wav");
+        if (isGUIMode && totalTicks % 12 == 0) {
+            player.playSound("/roar.wav");
         }
 
-        if (isGUIMode && totalTicks % 4 == 0) {
-            SoundPlayer.playSound("/goat.wav");
+        if (isGUIMode && totalTicks % 8 == 0) {
+            player.playSound("/goat.wav");
         }
 
-        goatPopulationHistory.add(findNumOfGoats());
-        grassPopulationHistory.add(findNumOfGrass());
-        lionPopulationHistory.add(findNumOfLions());
+        goatPopulationHistory.add(goatCount());
+        grassPopulationHistory.add(grassCount());
+        lionPopulationHistory.add(lionCount());
         List<Animal> deadAnimals = new ArrayList<>();
         for (Animal animal : animals) {
             animal.increaseAge();
 
-            boolean isTooOld = animal.isTooOld();
+            boolean isTooOld = animal.hasReachedEndOfLife();
             boolean isDead = animal.isEnergyZero(totalTicks);
             if (isDead || isTooOld) {
                 deadAnimals.add(animal);
-                numOfDeadGoats++;
+                if(animal instanceof Goat){
+                    numOfDeadGoats++;
+               }
+
             }
             if (animal instanceof Goat) {
-                numOfAliveGoats++;
+               numOfAliveGoats++;
             }
             animal.act(this, babyAnimalHolder, removedAnimalsHolder);
         }
@@ -155,9 +161,7 @@ public class World {
         animals.addAll(babyAnimalHolder);
         animals.removeAll(deadAnimals);
         animals.removeAll(removedAnimalsHolder);
-        System.out.println(
-                "================== " + String.valueOf(numOfDeadGoats - Lion.numOfEatenGoats)
-                        + " ===========================");
+
     }
 
     public Map<Point, List<Object>> scanNeighbour(int x, int y) {
@@ -166,8 +170,6 @@ public class World {
 
         for (int dx = -1; dx <= 1; dx++) {
             for (int dy = -1; dy <= 1; dy++) {
-                if (dx == 0 && dy == 0)
-                    continue;
 
                 int nx = x + dx;
                 int ny = y + dy;

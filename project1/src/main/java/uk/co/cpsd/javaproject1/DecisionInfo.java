@@ -2,29 +2,22 @@ package uk.co.cpsd.javaproject1;
 
 import java.awt.Point;
 
-public class DecisionInfo {
-
-    private DecisionType type;
-    private Point nextPos;
-
-    public enum DecisionType {
-        EAT,
-        FLEE,
-        REPRODUCE,
-        WANDER,
-    }
+public record DecisionInfo(DecisionType type, Point nextPos) {
 
     public DecisionInfo(DecisionType type, Point nextPos) {
+        if (type == null || nextPos == null) {
+            throw new IllegalArgumentException("Fields cannot be null");
+        }
+
         this.type = type;
-        this.nextPos = nextPos;
+        this.nextPos = new Point(nextPos); // defensive copy
     }
 
-    public DecisionType getType() {
-        return type;
+    public Point nextPos() {
+        return new Point(nextPos);
     }
 
-    public Point getNextPos() {
-        return nextPos;
+    public enum DecisionType {
+        EAT, FLEE, REPRODUCE, WANDER
     }
-
 }

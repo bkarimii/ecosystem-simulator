@@ -94,8 +94,8 @@ public class WorldPanel extends JPanel {
         g.setColor(Color.BLACK);
         g.setFont(font);
         String statement = "Seconds elapsed: " + world.getTicksElapsed() + " Num of Lions is: "
-                + world.findNumOfLions() + " Num of Goats is:  "
-                + world.findNumOfGoats() + " Num of Grass: " + world.findNumOfGrass();
+                + world.lionCount() + " Num of Goats is:  "
+                + world.goatCount() + " Num of Grass: " + world.grassCount();
         g.drawString(statement, cellSize, scoreY);
     }
 }

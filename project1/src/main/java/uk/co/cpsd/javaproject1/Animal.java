@@ -7,16 +7,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class Animal {
 
-    protected int x;
-    protected int y;
     protected int energyLevel;
     protected int animalId;
     private static final AtomicInteger idCounter = new AtomicInteger(0);
     protected int lastEnergyDecreaseTick = 0;
     protected int lastReproductionTick = -1;
     private int age = 0;
+    protected Point position;
 
-    private Gender gender;
+    private final Gender gender;
 
     public enum Gender {
         MALE,
@@ -33,8 +32,7 @@ public abstract class Animal {
     }
 
     public Animal(int x, int y, int energyLevel) {
-        this.x = x;
-        this.y = y;
+        this.position = new Point(x, y);
         this.energyLevel = energyLevel;
         this.gender = Math.random() < .5 ? Gender.MALE : Gender.FEMALE;
         this.animalId = idCounter.getAndIncrement();
@@ -45,17 +43,17 @@ public abstract class Animal {
     }
 
     public boolean isEnergyZero(int currentTime) {
-        return energyLevel <= 0 ? true : false;
+        return energyLevel <= 0;
     }
 
     public abstract Color getColor();
 
     public int getX() {
-        return x;
+        return position.x;
     }
 
     public int getY() {
-        return y;
+        return position.y;
     }
 
     public int getId() {
@@ -73,9 +71,8 @@ public abstract class Animal {
     public abstract DecisionInfo animalDecisionMaking(World world);
 
     public void setPosition(Point point, int cost) {
-        setPositionCost(cost);
-        this.x = point.x;
-        this.y = point.y;
+        applyMovementCost(cost);
+        this.position = new Point(point); // returns a copy
     }
 
     public Animal reproduceWithTwo(Animal partner, int currentTick) {
@@ -89,11 +86,11 @@ public abstract class Animal {
         partner.lastReproductionTick = currentTick;
 
         // Subtract energy based on species and gender
-        this.energyLevel -= getEnergyCost(this.gender);
-        partner.energyLevel -= getEnergyCost(partner.gender);
+        this.energyLevel -= getReproductionEnergyCost(this.gender);
+        partner.energyLevel -= getReproductionEnergyCost(partner.gender);
 
         // Create baby
-        Animal baby = createBaby(this.x, this.y);
+        Animal baby = createBaby(this.position.x, this.position.y);
         baby.energyLevel = getInitialBabyEnergy();
 
         return baby;
@@ -107,21 +104,17 @@ public abstract class Animal {
         this.lastReproductionTick = tick;
     }
 
-    public boolean isFertile(Animal otherAnimal, int currentTick) {
-        if (otherAnimal == this)
-            return false;
+    public boolean willMate(Animal otherAnimal, int currentTick) {
 
-        boolean oppositeGender = this.getGender() != otherAnimal.getGender();
-        boolean pairsHaveEenergy = this.energyLevel >= getEnergyCost(this.gender)
-                && otherAnimal.energyLevel >= getEnergyCost(otherAnimal.gender);
-        boolean sinceLastReproduce = currentTick - this.lastReproductionTick >= getReproductionCooldown(this.gender)
-                && currentTick - otherAnimal.lastReproductionTick >= getReproductionCooldown(otherAnimal.gender);
-        boolean isFertile = oppositeGender && pairsHaveEenergy && sinceLastReproduce;
-        return isFertile;
+        boolean bothAnimalHaveEnergy = this.isFertile(currentTick) && otherAnimal.isFertile(currentTick);
+        boolean isOppositeGender = this.gender != otherAnimal.gender;
 
+        return bothAnimalHaveEnergy && isOppositeGender;
     }
 
-    protected abstract int getEnergyCost(Gender gender);
+    public abstract boolean isFertile(int tick);
+
+    protected abstract int getReproductionEnergyCost(Gender gender);
 
     protected abstract int getInitialBabyEnergy();
 
@@ -129,9 +122,17 @@ public abstract class Animal {
 
     protected abstract int getReproductionCooldown(Gender gender);
 
-    public void setPositionCost(int cost) {
+    public void applyMovementCost(int cost) {
         energyLevel = energyLevel - cost;
     };
 
-    public abstract boolean isTooOld();
+    /**
+     * Determines if the animal has reached the age at which it should be considered
+     * deceased or removed from the simulation.
+     */
+    public abstract boolean hasReachedEndOfLife();
+
+    public Point getAnimalCoordinates() {
+        return new Point(position);
+    }
 }
