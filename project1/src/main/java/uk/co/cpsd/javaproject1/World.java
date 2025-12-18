@@ -2,10 +2,7 @@ package uk.co.cpsd.javaproject1;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 import java.awt.Point;
 
@@ -22,15 +19,23 @@ public class World {
     private int numOfAliveGoats = 0;
     private boolean isGUIMode;
     private final AudioPlayer player;
+    private static boolean isFirstWrite = true;
 
     public World(int numOfGoats, int numOfLions, boolean isGUIMode, AudioPlayer player) {
         animals = new ArrayList<>();
         for (int i = 0; i < numOfGoats; i++) {
-            animals.add(new Goat((int) (Math.random() * size), (int) (Math.random() * size)));
+//            animals.add(new Goat((int) (Math.random() * size), (int) (Math.random() * size)));
+            Animal goat = new Goat((int) (Math.random() * size), (int) (Math.random() * size));
+            animals.add(goat);
+            writeAnimalTraitsToCSV(goat); // Log traits for goats
+
         }
 
         for (int j = 0; j < numOfLions; j++) {
-            animals.add(new Lion((int) (Math.random() * size), (int) (Math.random() * size)));
+//            animals.add(new Lion((int) (Math.random() * size), (int) (Math.random() * size)));
+            Animal lion = new Lion((int) (Math.random() * size), (int) (Math.random() * size));
+            animals.add(lion);
+            writeAnimalTraitsToCSV(lion); // Log traits for initial lions
         }
         this.isGUIMode = isGUIMode;
         this.player = player;
@@ -215,4 +220,42 @@ public class World {
     public int getNumOfAliveGoats() {
         return numOfAliveGoats;
     }
+
+    public void writeAnimalTraitsToCSV(Animal animal) {
+        try (FileWriter csvData = new FileWriter("animal_traits.csv", !isFirstWrite)) {
+            if (isFirstWrite) {
+                csvData.write("Tick,AnimalId,Species,generation,fleeingPower,huntingPower,speed,parentsId,reproductionPower\n");
+                isFirstWrite = false; // Mark file as initialized
+            }
+
+            StringBuilder row = new StringBuilder();
+            row.append(totalTicks).append(",");
+            row.append(animal.getId()).append(",");
+            row.append(animal.getClass().getSimpleName()).append(",");
+
+            Integer generation = animal.dna.getTrait("generation", Integer.class);
+            row.append(generation != null ? generation : 1).append(",");
+
+            Double fleeingPower = animal.dna.getTrait("fleeingPower", Double.class);
+            row.append(fleeingPower != null ? fleeingPower : 0.0).append(",");
+
+            Double huntingPower = animal.dna.getTrait("huntingPower", Double.class);
+            row.append(huntingPower != null ? huntingPower : 0.0).append(",");
+
+            Double speed = animal.dna.getTrait("speed", Double.class);
+            row.append(speed != null ? speed : 0.0).append(",");
+
+            String parentsId = animal.dna.getTrait("parentsId", String.class);
+            row.append(parentsId != null ? parentsId : "f0m0").append(",");
+
+            Double reproductionPower = animal.dna.getTrait("reproductionPower", Double.class);
+            row.append(reproductionPower != null ? reproductionPower : 0.0);
+
+            row.append("\n");
+            csvData.write(row.toString());
+        } catch (IOException e) {
+            System.out.println("Error writing to animal_traits.csv: " + e);
+        }
+    }
+
 }

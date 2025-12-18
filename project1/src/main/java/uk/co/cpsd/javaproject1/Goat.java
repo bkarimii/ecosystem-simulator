@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import uk.co.cpsd.javaproject1.DecisionInfo.DecisionType;
 
@@ -15,15 +14,23 @@ public class Goat extends Animal {
 
     public final int HUNGER_THRESHOLDS = 30;
     public final int GOAT_MAX_AGE = 60;
+    private double fleeingPower;
 
     public Goat(int x, int y) {
         super(x, y, 40);
         this.setLastReproductionTick(0);
+        Random random = new Random();
+        if (!dna.hasTraits("fleeingPower")) {
+            double fleeingPower = 7.0 + new Random().nextDouble() * 2 - 1; // Random 6-8
+            fleeingPower = Math.round(fleeingPower * 100.0) / 100.0;       // Round to 2 decimals
+            dna.setTrait("fleeingPower", fleeingPower);
+        }
+        fleeingPower = dna.getTrait("fleeingPower", Double.class);
     }
 
     public void eatGrass() {
         this.energyLevel += 20;
-        System.out.println(energyLevel+"<=====Energy level====");
+//        System.out.println(energyLevel+"<=====Energy level====");
     }
 
     @Override
@@ -38,15 +45,34 @@ public class Goat extends Animal {
 
     @Override
     public void act(World world, List<Animal> babyAnimalHolder, List<Animal> removedAnimalsHolder) {
-        DecisionInfo decisionInfo = animalDecisionMaking(world);
+        // Handle pregnancy before other actions
+        handlePregnancy(world, babyAnimalHolder);
 
+        DecisionInfo decisionInfo = animalDecisionMaking(world);
+        int currentTick=world.getTotalTicks();
+        boolean canMove= lastMoveTick==-1 || (currentTick-lastMoveTick)>moveCooldown();
+        Point nextPos=decisionInfo.nextPos();
         switch (decisionInfo.type()) {
             case EAT:
-                if (world.hasGrass(decisionInfo.nextPos().x, decisionInfo.nextPos().y)) {
-                    eatGrass();
-                    world.removeGrass(decisionInfo.nextPos().x, decisionInfo.nextPos().y);
-                    setPosition(decisionInfo.nextPos(), 1);
-                    ;
+                if (world.hasGrass(nextPos.x, nextPos.y)) {
+
+                    if (!nextPos.equals(position)) {
+                        // Check if goat can move due to cooldown
+                        if (canMove) {
+                            eatGrass();
+                            world.removeGrass(nextPos.x, nextPos.y);
+                            setPosition(nextPos, isPregnant ? 2 : 1);
+                            lastMoveTick = currentTick;
+                            System.out.println("Goat ID " + animalId + " moved to eat at (" + nextPos.x + "," + nextPos.y + ") at tick " + currentTick);
+                        } else {
+                            setPosition(new Point(getX(), getY()), 0); // Stay put
+                            System.out.println("Goat ID " + animalId + " cannot move (cooldown) at tick " + currentTick);
+                        }
+                    } else {
+                        eatGrass();
+                        world.removeGrass(nextPos.x, nextPos.y);
+                        setPosition(nextPos, 0); // No move, no cost
+                    }
                 }
                 break;
             case REPRODUCE:
@@ -54,17 +80,36 @@ public class Goat extends Animal {
                 Animal partnerGoat = world.getAnimalAt(partnerLocation.x, partnerLocation.y);
 
                 if (partnerGoat instanceof Goat otherGoat && this.willMate(otherGoat, world.getTotalTicks())) {
-                    Animal babyGoat = this.reproduceWithTwo(otherGoat, world.getTotalTicks());
-                    babyAnimalHolder.add(babyGoat);
+                    this.reproduceWith(otherGoat, world.getTotalTicks());
                 }
                 break;
             case FLEE:
-                Point safeRandomPoint = decisionInfo.nextPos();
-                setPosition(safeRandomPoint, 5);
+                if (!nextPos.equals(position)) {
+                    if (canMove) {
+                        setPosition(nextPos, isPregnant ? 7 : 5);
+                        lastMoveTick = currentTick;
+                        System.out.println("Goat ID " + animalId + " at tick " + currentTick);
+                    } else {
+                        setPosition(new Point(getX(), getY()), 0);
+                        System.out.println("Goat ID " + animalId + " cannot flee at tick " + currentTick);
+                    }
+                } else {
+                    setPosition(nextPos, 0); // No move, no cost
+                }
                 break;
             case WANDER:
-                Point randomMove = decisionInfo.nextPos();
-                setPosition(randomMove, 1);
+                if (!nextPos.equals(position)) {
+                    if (canMove) {
+                        setPosition(nextPos, isPregnant ? 2 : 1);
+                        lastMoveTick = currentTick;
+                        System.out.println("Goat ID " + animalId + " wandered to (" + nextPos.x + "," + nextPos.y + ") at tick " + currentTick);
+                    } else {
+                        setPosition(new Point(getX(), getY()), 0);
+                        System.out.println("Goat ID " + animalId + " cannot wander (cooldown) at tick " + currentTick);
+                    }
+                } else {
+                    setPosition(nextPos, 0); // Stay in place
+                }
                 break;
 
         }
@@ -73,17 +118,17 @@ public class Goat extends Animal {
     @Override
     public DecisionInfo animalDecisionMaking(World world) {
 
-        Map<Point, List<Object>> scanedNeighbourHoodByGoat = world.scanNeighbour(getX(), getY());
+        Map<Point, List<Object>> scannedNeighbourHoodByGoat = world.scanNeighbour(getX(), getY());
 
         // 1. Priority: Flee from danger
-        Point safe = findRandomSafePos(scanedNeighbourHoodByGoat);
+        Point safe = findRandomSafePos(scannedNeighbourHoodByGoat);
         if (!safe.equals(new Point(getX(), getY()))) {
             return new DecisionInfo(DecisionType.FLEE, safe);
         }
 
         // 2. Priority: Eat if hungry
         if (isHungry()) {
-            for (Map.Entry<Point, List<Object>> entry : scanedNeighbourHoodByGoat.entrySet()) {
+            for (Map.Entry<Point, List<Object>> entry : scannedNeighbourHoodByGoat.entrySet()) {
                 if (entry.getValue().contains("grass")) {
                     return new DecisionInfo(DecisionType.EAT, entry.getKey());
                 }
@@ -91,7 +136,7 @@ public class Goat extends Animal {
         }
 
         // 3. Priority: Reproduce (check nearby goats)
-        for (Map.Entry<Point, List<Object>> entry : scanedNeighbourHoodByGoat.entrySet()) {
+        for (Map.Entry<Point, List<Object>> entry : scannedNeighbourHoodByGoat.entrySet()) {
             for (Object obj : entry.getValue()) {
                 if (obj instanceof Goat otherGoat && this.willMate(otherGoat, world.getTotalTicks())) {
                     return new DecisionInfo(DecisionType.REPRODUCE, entry.getKey());
@@ -99,9 +144,35 @@ public class Goat extends Animal {
             }
         }
 
-        // 4. Default: Random move
-        Point randomMove = findRandomPos(scanedNeighbourHoodByGoat);
-        return new DecisionInfo(DecisionType.WANDER, randomMove);
+        //4. Score tiles for wandering (grass=8 , safe tile preferred, lion=-10)
+        Point bestMove = null;
+        double bestScore = -1;
+        for (Map.Entry<Point, List<Object>> entry : scannedNeighbourHoodByGoat.entrySet()) {
+            double score = 0;
+            List<Object> objectsAtTile = entry.getValue();
+            if (objectsAtTile.contains("grass")) {
+                score += 8;
+            }
+            boolean hasLion = objectsAtTile.stream().anyMatch(obj -> obj instanceof Lion);
+            if (hasLion) {
+                score -= 10;
+            } else {
+                score += fleeingPower;
+            }
+            for (Object obj : objectsAtTile) {
+                if (obj instanceof Goat) {
+                    score += 6; // Preference to stay near other goats
+                }
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                bestMove = entry.getKey();
+            }
+        }
+
+        // 5. Wander: Use bestMove if available, otherwise fall back to random move
+        Point moveTo = bestMove != null ? bestMove : findRandomPos(scannedNeighbourHoodByGoat);
+        return new DecisionInfo(DecisionType.WANDER, moveTo);
     }
 
     public Point findRandomSafePos(Map<Point, List<Object>> neighbourHoodPos) {
@@ -160,8 +231,20 @@ public class Goat extends Animal {
     }
 
     @Override
+    protected int getPregnancyDuration() {
+        return 5; // 5 ticks = 5 seconds
+    }
+
+    @Override
     public int getReproductionEnergyCost(Gender gender) {
         return gender == Gender.FEMALE ? 7 : 5;
+
+    }
+
+    @Override
+    public int moveCooldown(){
+        double speed=dna.getTrait("speed",Double.class);
+        return (int)Math.max(3,10-speed);
 
     }
 
@@ -175,9 +258,15 @@ public class Goat extends Animal {
         return new Goat(x, y);
     }
 
+//    @Override
+//    public int getReproductionCooldown(Gender gender) {
+//        return gender == Gender.FEMALE ? 4 : 2;
+//    }
+
     @Override
     public int getReproductionCooldown(Gender gender) {
-        return gender == Gender.FEMALE ? 4 : 2;
+        // Strong Males can reproduct soon
+        return gender==Gender.FEMALE?12:4-(int)(reproductionPower-5);
     }
 
     public boolean hasReachedEndOfLife() {
